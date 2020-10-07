@@ -8,7 +8,7 @@ import { getKey, resolveBindingNode, buildCodeFrameError } from './ast';
 import { evaluateExpression } from './evaluate-expression';
 
 export interface CSSOutput {
-  css: string;
+  css: { sheet: string; conditional?: t.Expression }[];
   variables: {
     name: string;
     expression: t.Expression;
@@ -68,7 +68,7 @@ const extractObjectExpression = (node: t.ObjectExpression, meta: Metadata): CSSO
         // One needs to disable this warning.
         // eslint-disable-next-line @typescript-eslint/no-use-before-define
         const result = extractTemplateLiteral(propValue, updatedMeta);
-        value = result.css;
+        value = result.css.map(({ sheet }) => sheet).join('\n');
         variables = variables.concat(result.variables);
       } else {
         // This is the catch all for any kind of expression.
@@ -116,7 +116,7 @@ const extractObjectExpression = (node: t.ObjectExpression, meta: Metadata): CSSO
     }
   });
 
-  return { css, variables };
+  return { css: [{ sheet: css }], variables };
 };
 
 /**
@@ -184,7 +184,7 @@ const extractTemplateLiteral = (node: t.TemplateLiteral, meta: Metadata): CSSOut
     return css + q.value.raw;
   }, '');
 
-  return { css, variables };
+  return { css: [{ sheet: css }], variables };
 };
 
 /**
@@ -195,7 +195,7 @@ const extractTemplateLiteral = (node: t.TemplateLiteral, meta: Metadata): CSSOut
  */
 export const buildCss = (node: t.Expression, meta: Metadata): CSSOutput => {
   if (t.isStringLiteral(node)) {
-    return { css: node.value, variables: [] };
+    return { css: [{ sheet: node.value }], variables: [] };
   }
 
   if (t.isTemplateLiteral(node)) {
@@ -204,6 +204,19 @@ export const buildCss = (node: t.Expression, meta: Metadata): CSSOutput => {
 
   if (t.isObjectExpression(node)) {
     return extractObjectExpression(node, meta);
+  }
+
+  if (t.isLogicalExpression(node)) {
+    const result = buildCss(node.right, meta);
+    const css = result.css.map(({ sheet }) => ({
+      sheet,
+      conditional: node.left,
+    }));
+
+    return {
+      css,
+      variables: result.variables,
+    };
   }
 
   if (t.isIdentifier(node)) {
@@ -241,7 +254,7 @@ export const buildCss = (node: t.Expression, meta: Metadata): CSSOutput => {
   }
 
   if (t.isArrayExpression(node)) {
-    let css = '';
+    let sheets: CSSOutput['css'] = [];
     let variables: CSSOutput['variables'] = [];
 
     node.elements.forEach((element) => {
@@ -254,12 +267,12 @@ export const buildCss = (node: t.Expression, meta: Metadata): CSSOutput => {
       }
 
       const result = buildCss(element, meta);
-      css += result.css;
+      sheets = sheets.concat(result.css);
       variables = variables.concat(result.variables);
     });
 
     return {
-      css,
+      css: sheets,
       variables,
     };
   }

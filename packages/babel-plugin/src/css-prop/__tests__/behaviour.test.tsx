@@ -391,4 +391,21 @@ describe('css prop behaviour', () => {
 
     expect(actual).toInclude(':hover{color:red}');
   });
+
+  it('should conditionally apply static css', () => {
+    const actual = transform(`
+      import '@compiled/core';
+      import React from 'react';
+
+      const red = { color: 'red', textSize: 12 };
+
+      function Componet() {
+        const isDanger = useState(false);
+
+        return <div  css={[isDanger && red, { background: 'blue' }]} />;
+      }
+    `);
+
+    expect(actual).toInclude('aasd');
+  });
 });

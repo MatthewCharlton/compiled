@@ -336,7 +336,7 @@ export const buildCompiledComponent = (
   cssOutput: CSSOutput,
   meta: Metadata
 ): t.Node => {
-  const { sheets, classNames } = transformCss(cssOutput.css);
+  const { sheets, classNames } = transformCss(cssOutput.css.map(({ sheet }) => sheet).join(''));
   const classNameProp = node.openingElement.attributes.find((prop): prop is t.JSXAttribute => {
     return t.isJSXAttribute(prop) && prop.name.name === 'className';
   });
